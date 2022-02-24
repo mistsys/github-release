@@ -10,6 +10,7 @@ import (
 )
 
 const (
+	RELEASE_BY_TAG_URI  = "/repos/%s/%s/releases/tags/%s"
 	RELEASE_LIST_URI    = "/repos/%s/%s/releases"
 	RELEASE_LATEST_URI  = "/repos/%s/%s/releases/latest"
 	RELEASE_DATE_FORMAT = "02/01/2006 at 15:04"
@@ -115,28 +116,20 @@ func LatestRelease(user, repo, authUser, token string) (*Release, error) {
 	return &releases[latestRelIndex], nil
 }
 
-func ReleaseOfTag(user, repo, tag, authUser, token string) (*Release, error) {
-	var releases []Release
+func releaseByTagsApi(user, repo, tag, authUser, token string) (*Release, error) {
+	var release Release
 	client := github.NewClient(authUser, token, nil)
 	client.SetBaseURL(EnvApiEndpoint)
-	url := fmt.Sprintf(RELEASE_LIST_URI, user, repo)
+	return &release, client.Get(fmt.Sprintf(RELEASE_BY_TAG_URI, user, repo, tag), &release)
+}
 
-	for url != "" {
-		next, err := client.GetPaginated(url, 1, &releases)
-		if err != nil {
-			return nil, err
-		}
-
-		for _, release := range releases {
-			if release.TagName == tag {
-				return &release, nil
-			}
-		}
-
-		url = next
+func ReleaseOfTag(user, repo, tag, authUser, token string) (*Release, error) {
+	release, err := releaseByTagsApi(user, repo, tag, authUser, token)
+	if err != nil {
+		return nil, fmt.Errorf("could not find the release corresponding to tag %s, original error %v", tag, err)
 	}
 
-	return nil, fmt.Errorf("could not find the release corresponding to tag %s", tag)
+	return release, nil
 }
 
 /* find the release-id of the specified tag */
